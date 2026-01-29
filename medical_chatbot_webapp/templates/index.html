@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical KG-RAG Chatbot - Biomedical Knowledge Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: #f5f5f5;
+            border-radius: 20px;
+            box-shadow: 
+                0 20px 60px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.5);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+            max-height: 800px;
+        }
+
+        /* Medical-themed header with Skeuomorphic design */
+        .header {
+            background: linear-gradient(180deg, #2c5282 0%, #1a365d 100%);
+            padding: 25px 30px;
+            border-bottom: 3px solid #1a365d;
+            box-shadow: 
+                0 4px 6px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(255, 255, 255, 0.3) 50%, 
+                transparent 100%);
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .medical-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 
+                0 4px 8px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .medical-icon::before {
+            content: '⚕';
+            font-size: 28px;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header-text h1 {
+            font-family: 'Roboto Slab', serif;
+            color: white;
+            font-size: 24px;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            margin-bottom: 5px;
+        }
+
+        .header-text p {
+            color: #a0aec0;
+            font-size: 14px;
+            font-weight: 300;
+        }
+
+        .status-indicator {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: #48bb78;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #48bb78;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            color: #a0aec0;
+            font-size: 12px;
+        }
+
+        /* Chat area with medical paper texture */
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+            background: 
+                linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px),
+                linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-color: #fafafa;
+            position: relative;
+        }
+
+        .chat-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, transparent 0%, rgba(0,0,0,0.02) 100%);
+            pointer-events: none;
+        }
+
+        .welcome-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #4a5568;
+        }
+
+        .welcome-message h2 {
+            font-family: 'Roboto Slab', serif;
+            font-size: 28px;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+
+        .welcome-message p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .example-questions {
+            margin-top: 30px;
+            text-align: left;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .example-questions h3 {
+            font-size: 18px;
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+
+        .example-question {
+            background: white;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .example-question:hover {
+            background: #edf2f7;
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Message bubbles with medical card style */
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+            box-shadow: 
+                0 4px 8px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+
+        .message-content {
+            max-width: 70%;
+            background: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            border: 1px solid #e2e8f0;
+            position: relative;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .message-text {
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        /* Processing steps display */
+        .processing-steps {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #e2e8f0;
+        }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+            padding: 10px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 3px solid #cbd5e0;
+        }
+
+        .step.completed {
+            border-left-color: #48bb78;
+        }
+
+        .step.processing {
+            border-left-color: #4299e1;
+        }
+
+        .step.error {
+            border-left-color: #f56565;
+        }
+
+        .step-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+
+        .step.completed .step-icon {
+            background: #48bb78;
+            color: white;
+        }
+
+        .step.processing .step-icon {
+            background: #4299e1;
+            color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .step.error .step-icon {
+            background: #f56565;
+            color: white;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-name {
+            font-weight: 500;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+
+        .step-description {
+            font-size: 13px;
+            color: #718096;
+        }
+
+        /* Input area with medical device style */
+        .input-area {
+            padding: 20px 30px;
+            background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e0 100%);
+            border-top: 3px solid #a0aec0;
+            box-shadow: 
+                inset 0 2px 4px rgba(0, 0, 0, 0.1),
+                0 -4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .input-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        #questionInput {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #a0aec0;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: 'Roboto', sans-serif;
+            background: white;
+            box-shadow: 
+                inset 0 2px 4px rgba(0, 0, 0, 0.1),
+                0 1px 0 rgba(255, 255, 255, 0.8);
+            transition: all 0.3s;
+        }
+
+        #questionInput:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 
+                inset 0 2px 4px rgba(0, 0, 0, 0.1),
+                0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        #sendButton {
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 
+                0 4px 12px rgba(102, 126, 234, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        #sendButton:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 6px 16px rgba(102, 126, 234, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        #sendButton:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        #sendButton:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Loading animation */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Scrollbar styling */
+        .chat-area::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .chat-area::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .chat-area::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .chat-area::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #764ba2 0%, #667eea 100%);
+        }
+
+        /* Graph visualization styles */
+        .graph-toggle-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+            transition: all 0.3s;
+            z-index: 1000;
+            display: none;
+        }
+
+        .graph-toggle-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(72, 187, 120, 0.6);
+        }
+
+        .graph-toggle-btn.visible {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .graph-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .graph-modal.active {
+            display: flex;
+        }
+
+        .graph-container {
+            background: white;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 1400px;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .graph-header {
+            background: linear-gradient(180deg, #2c5282 0%, #1a365d 100%);
+            padding: 20px 30px;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .graph-header h2 {
+            color: white;
+            font-family: 'Roboto Slab', serif;
+            font-size: 22px;
+            margin: 0;
+        }
+
+        .graph-close-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .graph-close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+
+        .graph-content {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #graphVisualization {
+            width: 100%;
+            height: 100%;
+        }
+
+        .graph-legend {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 2px solid #e2e8f0;
+        }
+
+        .graph-legend h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .graph-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 2px solid #e2e8f0;
+            max-width: 400px;
+            display: none;
+        }
+
+        .graph-info.visible {
+            display: block;
+        }
+
+        .graph-info h4 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .graph-info p {
+            font-size: 12px;
+            color: #4a5568;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                height: 100vh;
+                max-height: none;
+                border-radius: 0;
+            }
+
+            .message-content {
+                max-width: 85%;
+            }
+
+            .header-content {
+                flex-wrap: wrap;
+            }
+
+            .status-indicator {
+                margin-left: 0;
+                width: 100%;
+                justify-content: center;
+                margin-top: 10px;
+            }
+
+            .graph-toggle-btn {
+                bottom: 20px;
+                right: 20px;
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+
+            .graph-legend {
+                font-size: 11px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <div class="medical-icon"></div>
+                <div class="header-text">
+                    <h1>Medical KG-RAG Chatbot</h1>
+                    <p>Biomedical Knowledge Graph-Enhanced AI Assistant</p>
+                </div>
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span class="status-text">System Ready</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-area" id="chatArea">
+            <div class="welcome-message">
+                <h2>Welcome to Medical KG-RAG</h2>
+                <p>Ask me any biomedical question and I'll provide evidence-based answers</p>
+                <p>powered by the SPOKE knowledge graph and GPT-3.5-Turbo.</p>
+                
+                <div class="example-questions">
+                    <h3>Try asking:</h3>
+                    <div class="example-question" onclick="askQuestion('What are the symptoms of Bardet-Biedl syndrome?')">
+                        What are the symptoms of Bardet-Biedl syndrome?
+                    </div>
+                    <div class="example-question" onclick="askQuestion('What drugs are used to treat multiple sclerosis?')">
+                        What drugs are used to treat multiple sclerosis?
+                    </div>
+                    <div class="example-question" onclick="askQuestion('What genes are associated with Alzheimer\'s disease?')">
+                        What genes are associated with Alzheimer's disease?
+                    </div>
+                    <div class="example-question" onclick="askQuestion('What is the relationship between diabetes and obesity?')">
+                        What is the relationship between diabetes and obesity?
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        id="questionInput" 
+                        placeholder="Ask a biomedical question..."
+                        onkeypress="handleKeyPress(event)"
+                    >
+                </div>
+                <button id="sendButton" onclick="sendQuestion()">
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graph Visualization Toggle Button -->
+    <button class="graph-toggle-btn" id="graphToggleBtn" onclick="toggleGraphModal()">
+        🔗
+    </button>
+
+    <!-- Graph Visualization Modal -->
+    <div class="graph-modal" id="graphModal">
+        <div class="graph-container">
+            <div class="graph-header">
+                <h2>Context Graph - RAG Pipeline Visualization</h2>
+                <button class="graph-close-btn" onclick="toggleGraphModal()">×</button>
+            </div>
+            <div class="graph-content">
+                <svg id="graphVisualization"></svg>
+                
+                <div class="graph-legend">
+                    <h3>Node Types</h3>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #667eea;"></div>
+                        <span>Question</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #f6ad55;"></div>
+                        <span>Extracted Entity</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #48bb78;"></div>
+                        <span>SPOKE Node</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4299e1;"></div>
+                        <span>Context Entity</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ed64a6;"></div>
+                        <span>Answer</span>
+                    </div>
+                </div>
+
+                <div class="graph-info" id="graphInfo">
+                    <h4>Node Details</h4>
+                    <p id="graphInfoText">Click on a node to see details</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isProcessing = false;
+        let currentGraphData = null;
+
+        function askQuestion(question) {
+            document.getElementById('questionInput').value = question;
+            sendQuestion();
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !isProcessing) {
+                sendQuestion();
+            }
+        }
+
+        function toggleGraphModal() {
+            const modal = document.getElementById('graphModal');
+            modal.classList.toggle('active');
+            
+            if (modal.classList.contains('active') && currentGraphData) {
+                renderGraph(currentGraphData);
+            }
+        }
+
+        function getNodeColor(type) {
+            const colors = {
+                'question': '#667eea',
+                'entity': '#f6ad55',
+                'spoke_node': '#48bb78',
+                'context_entity': '#4299e1',
+                'answer': '#ed64a6'
+            };
+            return colors[type] || '#718096';
+        }
+
+        function getNodeSize(type) {
+            const sizes = {
+                'question': 20,
+                'entity': 15,
+                'spoke_node': 18,
+                'context_entity': 12,
+                'answer': 20
+            };
+            return sizes[type] || 12;
+        }
+
+        function renderGraph(graphData) {
+            const svg = d3.select('#graphVisualization');
+            svg.selectAll('*').remove();
+
+            const container = document.querySelector('.graph-content');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            svg.attr('width', width).attr('height', height);
+
+            const g = svg.append('g');
+
+            // Add zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on('zoom', (event) => {
+                    g.attr('transform', event.transform);
+                });
+
+            svg.call(zoom);
+
+            // Create force simulation
+            const simulation = d3.forceSimulation(graphData.nodes)
+                .force('link', d3.forceLink(graphData.edges)
+                    .id(d => d.id)
+                    .distance(100))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(d => getNodeSize(d.type) + 10));
+
+            // Create arrow markers for edges
+            svg.append('defs').selectAll('marker')
+                .data(['end'])
+                .enter().append('marker')
+                .attr('id', 'arrowhead')
+                .attr('viewBox', '0 -5 10 10')
+                .attr('refX', 20)
+                .attr('refY', 0)
+                .attr('markerWidth', 6)
+                .attr('markerHeight', 6)
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M0,-5L10,0L0,5')
+                .attr('fill', '#999');
+
+            // Create edges
+            const link = g.append('g')
+                .selectAll('line')
+                .data(graphData.edges)
+                .enter().append('line')
+                .attr('stroke', '#999')
+                .attr('stroke-opacity', 0.6)
+                .attr('stroke-width', 2)
+                .attr('marker-end', 'url(#arrowhead)');
+
+            // Create edge labels
+            const edgeLabel = g.append('g')
+                .selectAll('text')
+                .data(graphData.edges)
+                .enter().append('text')
+                .attr('font-size', 10)
+                .attr('fill', '#666')
+                .attr('text-anchor', 'middle')
+                .text(d => d.label);
+
+            // Create nodes
+            const node = g.append('g')
+                .selectAll('circle')
+                .data(graphData.nodes)
+                .enter().append('circle')
+                .attr('r', d => getNodeSize(d.type))
+                .attr('fill', d => getNodeColor(d.type))
+                .attr('stroke', '#fff')
+                .attr('stroke-width', 3)
+                .style('cursor', 'pointer')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended))
+                .on('click', (event, d) => {
+                    const info = document.getElementById('graphInfo');
+                    const infoText = document.getElementById('graphInfoText');
+                    info.classList.add('visible');
+                    
+                    let text = `<strong>Type:</strong> ${d.type}<br>`;
+                    text += `<strong>Label:</strong> ${d.label}<br>`;
+                    if (d.fullText) {
+                        text += `<strong>Full Text:</strong> ${d.fullText}`;
+                    }
+                    infoText.innerHTML = text;
+                })
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .transition()
+                        .duration(200)
+                        .attr('r', getNodeSize(d.type) * 1.3);
+                })
+                .on('mouseout', function(event, d) {
+                    d3.select(this)
+                        .transition()
+                        .duration(200)
+                        .attr('r', getNodeSize(d.type));
+                });
+
+            // Create node labels
+            const nodeLabel = g.append('g')
+                .selectAll('text')
+                .data(graphData.nodes)
+                .enter().append('text')
+                .attr('font-size', 11)
+                .attr('font-weight', 'bold')
+                .attr('fill', '#2d3748')
+                .attr('text-anchor', 'middle')
+                .attr('dy', d => getNodeSize(d.type) + 15)
+                .text(d => d.label.length > 20 ? d.label.substring(0, 20) + '...' : d.label)
+                .style('pointer-events', 'none');
+
+            // Update positions on simulation tick
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+
+                edgeLabel
+                    .attr('x', d => (d.source.x + d.target.x) / 2)
+                    .attr('y', d => (d.source.y + d.target.y) / 2);
+
+                node
+                    .attr('cx', d => d.x)
+                    .attr('cy', d => d.y);
+
+                nodeLabel
+                    .attr('x', d => d.x)
+                    .attr('y', d => d.y);
+            });
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+        }
+
+        function addMessage(text, isUser, steps = null, answer = null) {
+            const chatArea = document.getElementById('chatArea');
+            const welcomeMsg = chatArea.querySelector('.welcome-message');
+            if (welcomeMsg) {
+                welcomeMsg.remove();
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = isUser ? '👤' : '⚕️';
+
+            const content = document.createElement('div');
+            content.className = 'message-content';
+
+            const messageText = document.createElement('div');
+            messageText.className = 'message-text';
+            messageText.textContent = text;
+            content.appendChild(messageText);
+
+            if (steps && steps.length > 0) {
+                const stepsDiv = document.createElement('div');
+                stepsDiv.className = 'processing-steps';
+                
+                steps.forEach(step => {
+                    const stepDiv = document.createElement('div');
+                    stepDiv.className = `step ${step.status}`;
+                    
+                    const stepIcon = document.createElement('div');
+                    stepIcon.className = 'step-icon';
+                    stepIcon.textContent = step.status === 'completed' ? '✓' : 
+                                          step.status === 'processing' ? '⟳' : 
+                                          step.status === 'error' ? '✗' : step.step;
+                    
+                    const stepContent = document.createElement('div');
+                    stepContent.className = 'step-content';
+                    
+                    const stepName = document.createElement('div');
+                    stepName.className = 'step-name';
+                    stepName.textContent = step.name;
+                    
+                    const stepDesc = document.createElement('div');
+                    stepDesc.className = 'step-description';
+                    stepDesc.textContent = step.result || step.description;
+                    
+                    stepContent.appendChild(stepName);
+                    stepContent.appendChild(stepDesc);
+                    
+                    stepDiv.appendChild(stepIcon);
+                    stepDiv.appendChild(stepContent);
+                    stepsDiv.appendChild(stepDiv);
+                });
+                
+                content.appendChild(stepsDiv);
+            }
+
+            if (answer) {
+                const answerDiv = document.createElement('div');
+                answerDiv.className = 'message-text';
+                answerDiv.style.marginTop = '15px';
+                answerDiv.style.paddingTop = '15px';
+                answerDiv.style.borderTop = '2px solid #e2e8f0';
+                answerDiv.style.fontWeight = '500';
+                answerDiv.textContent = answer;
+                content.appendChild(answerDiv);
+            }
+
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(content);
+            chatArea.appendChild(messageDiv);
+
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        async function sendQuestion() {
+            if (isProcessing) return;
+
+            const input = document.getElementById('questionInput');
+            const question = input.value.trim();
+
+            if (!question) return;
+
+            isProcessing = true;
+            const sendButton = document.getElementById('sendButton');
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<span class="loading"></span>';
+
+            addMessage(question, true);
+            input.value = '';
+
+            // Create initial assistant message container
+            const chatArea = document.getElementById('chatArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = '⚕️';
+
+            const content = document.createElement('div');
+            content.className = 'message-content';
+
+            const messageText = document.createElement('div');
+            messageText.className = 'message-text';
+            messageText.textContent = 'Processing your question through KG-RAG interactive pipeline...';
+            content.appendChild(messageText);
+
+            const stepsDiv = document.createElement('div');
+            stepsDiv.className = 'processing-steps';
+            content.appendChild(stepsDiv);
+
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(content);
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ question: question })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                const steps = {};
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+
+                        try {
+                            const data = JSON.parse(line);
+
+                            if (data.type === 'step_start') {
+                                // Create new step element
+                                const stepDiv = document.createElement('div');
+                                stepDiv.className = 'step processing';
+                                stepDiv.id = `step-${data.step}`;
+                                
+                                const stepIcon = document.createElement('div');
+                                stepIcon.className = 'step-icon';
+                                stepIcon.textContent = '⟳';
+                                
+                                const stepContent = document.createElement('div');
+                                stepContent.className = 'step-content';
+                                
+                                const stepName = document.createElement('div');
+                                stepName.className = 'step-name';
+                                stepName.textContent = data.name;
+                                
+                                const stepDesc = document.createElement('div');
+                                stepDesc.className = 'step-description';
+                                stepDesc.textContent = data.description;
+                                
+                                stepContent.appendChild(stepName);
+                                stepContent.appendChild(stepDesc);
+                                
+                                stepDiv.appendChild(stepIcon);
+                                stepDiv.appendChild(stepContent);
+                                stepsDiv.appendChild(stepDiv);
+                                
+                                steps[data.step] = stepDiv;
+                                chatArea.scrollTop = chatArea.scrollHeight;
+                            } 
+                            else if (data.type === 'step_complete') {
+                                // Update existing step
+                                const stepDiv = steps[data.step];
+                                if (stepDiv) {
+                                    stepDiv.className = `step ${data.status}`;
+                                    const stepIcon = stepDiv.querySelector('.step-icon');
+                                    stepIcon.textContent = data.status === 'completed' ? '✓' : 
+                                                          data.status === 'error' ? '✗' : '⚠';
+                                    const stepDesc = stepDiv.querySelector('.step-description');
+                                    stepDesc.textContent = data.result;
+                                }
+                                chatArea.scrollTop = chatArea.scrollHeight;
+                            }
+                            else if (data.type === 'graph_data') {
+                                // Store graph data and show toggle button
+                                currentGraphData = data.graph;
+                                const graphBtn = document.getElementById('graphToggleBtn');
+                                graphBtn.classList.add('visible');
+                            }
+                            else if (data.type === 'answer') {
+                                // Add final answer
+                                const answerDiv = document.createElement('div');
+                                answerDiv.className = 'message-text';
+                                answerDiv.style.marginTop = '15px';
+                                answerDiv.style.paddingTop = '15px';
+                                answerDiv.style.borderTop = '2px solid #e2e8f0';
+                                answerDiv.style.fontWeight = '500';
+                                answerDiv.innerHTML = '<strong>Answer:</strong><br>' + data.answer;
+                                content.appendChild(answerDiv);
+                                chatArea.scrollTop = chatArea.scrollHeight;
+                            }
+                            else if (data.type === 'error') {
+                                messageText.textContent = `Error: ${data.error}`;
+                                messageText.style.color = '#f56565';
+                            }
+                        } catch (e) {
+                            console.error('Error parsing stream data:', e);
+                        }
+                    }
+                }
+            } catch (error) {
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'message-text';
+                errorMsg.style.color = '#f56565';
+                errorMsg.textContent = `Error: ${error.message}`;
+                content.appendChild(errorMsg);
+            } finally {
+                isProcessing = false;
+                sendButton.disabled = false;
+                sendButton.textContent = 'Send';
+            }
+        }
+
+        // Check server health on load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                console.log('Server health:', data);
+            } catch (error) {
+                console.error('Server health check failed:', error);
+            }
+        });
+    </script>
+</body>
+</html>
