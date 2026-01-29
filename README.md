@@ -83,18 +83,46 @@ You can see that, KG-RAG was able to give the correct information about the FDA 
 Clone this repository. All Biomedical data used in the paper are uploaded to this repository, hence you don't have to download that separately.
 
 ### Step 2: Create a virtual environment
-Note: Scripts in this repository were run using python 3.10.9
+Note: Scripts in this repository were run using python 3.10.9. You can use either Conda or the built-in `venv` module—both options are listed below. Pick the workflow that matches your tooling on the target machine.
+
+<details>
+<summary><strong>Option A: Conda (original instructions)</strong></summary>
+
 ```
 conda create -n kg_rag python=3.10.9
 conda activate kg_rag
 cd KG_RAG
 ```
 
+</details>
+
+<details>
+<summary><strong>Option B: Python venv (recommended for quick clones)</strong></summary>
+
+```
+python -m venv kg_rag_env
+
+# Windows
+kg_rag_env\Scripts\activate
+
+# macOS / Linux
+source kg_rag_env/bin/activate
+
+pip install --upgrade pip
+cd KG_RAG
+```
+
+</details>
+
+When you reclone this repository on a new device, repeat the virtual-environment creation steps above before installing dependencies.
+
 ### Step 3: Install dependencies
 
 ```
 pip install -r requirements.txt
 ```
+
+If you used the `venv` route, make sure the environment is activated before running the command. The repo purposely excludes large compiled dependencies (PyTorch DLLs, Chromadb bindings, etc.), so installing from `requirements.txt` is the supported way to regenerate them.
 
 ### Step 4: Update config.yaml 
 
@@ -115,6 +143,15 @@ Running the setup script will:
 ```
 python -m kg_rag.run_setup
 ```
+
+#### Required local data artefacts
+
+Some large biomedical resources are intentionally ignored in Git. Before running the setup script end-to-end you should ensure the following artefacts exist locally:
+
+1. `data/context_of_disease_which_has_relation_to_genes.csv` – copy/download this CSV into the `data/` directory. (It is >60 MB and is therefore stored outside Git. Use your institutional data source or internal bucket to obtain it.)
+2. Any additional disease-specific context dumps or vector stores unique to your deployment. If you previously generated them, copy them into the matching `data/` subdirectories before rerunning `kg_rag.run_setup` so the script can reuse them.
+
+If you do not have the CSV yet, you can still run the setup script; it will prompt you for the minimum information required to rebuild the context. Expect longer runtimes because the graph extraction will regenerate the dataset.
 
 ### Step 6: Run KG-RAG from your terminal
 Note: Make sure you are in KG_RAG folder
