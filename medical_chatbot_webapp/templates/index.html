@@ -337,14 +337,112 @@
         }
 
         .step {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
             margin-bottom: 12px;
-            padding: 10px;
             background: #f7fafc;
             border-radius: 8px;
             border-left: 3px solid #cbd5e0;
+            overflow: hidden;
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .step-header:hover {
+            background: #edf2f7;
+        }
+
+        .step-header.static {
+            cursor: default;
+        }
+
+        .step-header.static:hover {
+            background: transparent;
+        }
+
+        .step-body {
+            padding: 0 10px 10px 46px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+        }
+
+        .step-body.expanded {
+            max-height: 2000px;
+            padding: 10px 10px 10px 46px;
+            overflow-y: auto;
+        }
+
+        .step-data {
+            background: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            font-size: 13px;
+            color: #4a5568;
+            line-height: 1.6;
+            margin-top: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .step-data::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .step-data::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .step-data::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 4px;
+        }
+
+        .step-data::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0;
+        }
+
+        .step-data-item {
+            margin-bottom: 8px;
+        }
+
+        .step-data-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .step-data-label {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+
+        .step-data-value {
+            color: #4a5568;
+            font-family: 'Courier New', monospace;
+            background: #f7fafc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-right: 6px;
+            margin-bottom: 4px;
+        }
+
+        .step-toggle-icon {
+            font-size: 10px;
+            color: #718096;
+            transition: transform 0.3s;
+            margin-left: auto;
+        }
+
+        .step-toggle-icon.expanded {
+            transform: rotate(180deg);
         }
 
         .step.completed {
@@ -1185,6 +1283,7 @@
                 const decoder = new TextDecoder();
                 let buffer = '';
                 const steps = {};
+            let expandedStep = null;
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -1207,6 +1306,11 @@
                                 stepDiv.className = 'step processing';
                                 stepDiv.id = `step-${data.step}`;
                                 
+                                const isFinalStep = data.step === 5;
+
+                                const stepHeader = document.createElement('div');
+                                stepHeader.className = `step-header${isFinalStep ? ' static' : ''}`;
+                                
                                 const stepIcon = document.createElement('div');
                                 stepIcon.className = 'step-icon';
                                 stepIcon.textContent = '⟳';
@@ -1222,26 +1326,163 @@
                                 stepDesc.className = 'step-description';
                                 stepDesc.textContent = data.description;
                                 
+                                let stepToggle = null;
+                                if (!isFinalStep) {
+                                    stepToggle = document.createElement('div');
+                                    stepToggle.className = 'step-toggle-icon';
+                                    stepToggle.textContent = '▼';
+                                }
+                                
                                 stepContent.appendChild(stepName);
                                 stepContent.appendChild(stepDesc);
                                 
-                                stepDiv.appendChild(stepIcon);
-                                stepDiv.appendChild(stepContent);
+                                stepHeader.appendChild(stepIcon);
+                                stepHeader.appendChild(stepContent);
+                                if (stepToggle) {
+                                    stepHeader.appendChild(stepToggle);
+                                }
+
+                                let stepBody = null;
+                                if (!isFinalStep) {
+                                    stepBody = document.createElement('div');
+                                    stepBody.className = 'step-body';
+                                }
+
+                                if (stepBody) {
+                                    stepHeader.onclick = () => {
+                                        const isCurrentlyExpanded = stepBody.classList.contains('expanded');
+
+                                        // Collapse all other steps
+                                        Object.values(steps).forEach(step => {
+                                            if (step.body) {
+                                                step.body.classList.remove('expanded');
+                                            }
+                                            if (step.toggle) {
+                                                step.toggle.classList.remove('expanded');
+                                            }
+                                        });
+
+                                        if (!isCurrentlyExpanded) {
+                                            stepBody.classList.add('expanded');
+                                            if (stepToggle) stepToggle.classList.add('expanded');
+                                            expandedStep = data.step;
+                                        } else {
+                                            expandedStep = null;
+                                        }
+                                    };
+                                }
+
+                                stepDiv.appendChild(stepHeader);
+                                if (stepBody) {
+                                    stepDiv.appendChild(stepBody);
+                                }
                                 stepsContent.appendChild(stepDiv);
-                                
-                                steps[data.step] = stepDiv;
+
+                                steps[data.step] = {div: stepDiv, body: stepBody, toggle: stepToggle};
                                 chatArea.scrollTop = chatArea.scrollHeight;
                             } 
                             else if (data.type === 'step_complete') {
                                 // Update existing step
-                                const stepDiv = steps[data.step];
-                                if (stepDiv) {
+                                const stepObj = steps[data.step];
+                                if (stepObj) {
+                                    const stepDiv = stepObj.div;
+                                    const stepBody = stepObj.body;
+                                    
                                     stepDiv.className = `step ${data.status}`;
                                     const stepIcon = stepDiv.querySelector('.step-icon');
                                     stepIcon.textContent = data.status === 'completed' ? '✓' : 
                                                           data.status === 'error' ? '✗' : '⚠';
                                     const stepDesc = stepDiv.querySelector('.step-description');
                                     stepDesc.textContent = data.result;
+                                    
+                                    // Add detailed data if available
+                                    if (data.data && stepBody) {
+                                        const stepData = document.createElement('div');
+                                        stepData.className = 'step-data';
+                                        
+                                        // Format data based on step type
+                                        if (data.data.entities) {
+                                            const dataItem = document.createElement('div');
+                                            dataItem.className = 'step-data-item';
+                                            const label = document.createElement('div');
+                                            label.className = 'step-data-label';
+                                            label.textContent = 'Extracted Entities:';
+                                            dataItem.appendChild(label);
+                                            data.data.entities.forEach(entity => {
+                                                const value = document.createElement('span');
+                                                value.className = 'step-data-value';
+                                                value.textContent = entity;
+                                                dataItem.appendChild(value);
+                                            });
+                                            stepData.appendChild(dataItem);
+                                        }
+                                        
+                                        if (data.data.nodes) {
+                                            const dataItem = document.createElement('div');
+                                            dataItem.className = 'step-data-item';
+                                            const label = document.createElement('div');
+                                            label.className = 'step-data-label';
+                                            label.textContent = 'Matched SPOKE Nodes:';
+                                            dataItem.appendChild(label);
+                                            data.data.nodes.forEach(node => {
+                                                const value = document.createElement('span');
+                                                value.className = 'step-data-value';
+                                                value.textContent = node;
+                                                dataItem.appendChild(value);
+                                            });
+                                            stepData.appendChild(dataItem);
+                                        }
+                                        
+                                        if (data.data.contexts) {
+                                            data.data.contexts.forEach((ctx, idx) => {
+                                                const dataItem = document.createElement('div');
+                                                dataItem.className = 'step-data-item';
+                                                const label = document.createElement('div');
+                                                label.className = 'step-data-label';
+                                                label.textContent = `Context from ${ctx.node}:`;
+                                                dataItem.appendChild(label);
+                                                const snippet = document.createElement('div');
+                                                snippet.style.marginTop = '8px';
+                                                snippet.style.fontStyle = 'normal';
+                                                snippet.style.whiteSpace = 'pre-wrap';
+                                                snippet.style.wordBreak = 'break-word';
+                                                snippet.textContent = ctx.snippet;
+                                                dataItem.appendChild(snippet);
+                                                const meta = document.createElement('div');
+                                                meta.style.fontSize = '11px';
+                                                meta.style.color = '#718096';
+                                                meta.style.marginTop = '8px';
+                                                meta.textContent = `Total length: ${ctx.total_length} characters`;
+                                                dataItem.appendChild(meta);
+                                                stepData.appendChild(dataItem);
+                                            });
+                                        }
+                                        
+                                        if (data.data.preview !== undefined) {
+                                            const dataItem = document.createElement('div');
+                                            dataItem.className = 'step-data-item';
+                                            const label = document.createElement('div');
+                                            label.className = 'step-data-label';
+                                            label.textContent = `Pruned Context (${data.data.count} statements):`;
+                                            dataItem.appendChild(label);
+                                            const preview = document.createElement('div');
+                                            preview.style.marginTop = '8px';
+                                            preview.style.fontStyle = 'normal';
+                                            preview.style.whiteSpace = 'pre-wrap';
+                                            preview.style.wordBreak = 'break-word';
+                                            preview.textContent = data.data.preview;
+                                            dataItem.appendChild(preview);
+                                            const meta = document.createElement('div');
+                                            meta.style.fontSize = '11px';
+                                            meta.style.color = '#718096';
+                                            meta.style.marginTop = '8px';
+                                            meta.textContent = `Total length: ${data.data.total_length} characters`;
+                                            dataItem.appendChild(meta);
+                                            stepData.appendChild(dataItem);
+                                        }
+                                        
+                                        stepBody.appendChild(stepData);
+                                    }
                                 }
                                 chatArea.scrollTop = chatArea.scrollHeight;
                             }

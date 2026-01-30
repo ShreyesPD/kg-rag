@@ -100,7 +100,8 @@ def generate_interactive_stream(question):
                 'type': 'step_complete',
                 'step': 1,
                 'status': 'completed',
-                'result': f"Extracted entities: {', '.join(entities)}"
+                'result': f"Extracted entities: {', '.join(entities)}",
+                'data': {'entities': entities}
             }) + '\n'
         
         # Step 2: Match entities to SPOKE nodes
@@ -154,7 +155,8 @@ def generate_interactive_stream(question):
             'type': 'step_complete',
             'step': 2,
             'status': 'completed',
-            'result': f"Matched SPOKE nodes: {', '.join(node_hits)}"
+            'result': f"Matched SPOKE nodes: {', '.join(node_hits)}",
+            'data': {'nodes': node_hits}
         }) + '\n'
         
         # Step 3: Context extraction from SPOKE
@@ -190,11 +192,21 @@ def generate_interactive_stream(question):
                             'label': 'related_to'
                         })
         
+        # Prepare context preview (show full context, will be scrollable in UI)
+        context_preview = []
+        for nc in node_contexts:
+            context_preview.append({
+                'node': nc['node'],
+                'snippet': nc['context'],  # Show full context
+                'total_length': len(nc['context'])
+            })
+        
         yield json.dumps({
             'type': 'step_complete',
             'step': 3,
             'status': 'completed',
-            'result': f"Retrieved context from {len(node_hits)} knowledge graph nodes"
+            'result': f"Retrieved context from {len(node_hits)} knowledge graph nodes",
+            'data': {'contexts': context_preview}
         }) + '\n'
         
         # Step 4: Context pruning
@@ -247,11 +259,19 @@ def generate_interactive_stream(question):
                 node_context_extracted += node_context + ". "
                 pruned_context_count += 1
         
+        # Prepare pruned context preview (full content, UI handles scrolling)
+        pruned_preview = node_context_extracted.strip()
+
         yield json.dumps({
             'type': 'step_complete',
             'step': 4,
             'status': 'completed',
-            'result': f'Pruned to {pruned_context_count} most relevant context statements'
+            'result': f'Pruned to {pruned_context_count} most relevant context statements',
+            'data': {
+                'count': pruned_context_count,
+                'preview': pruned_preview,
+                'total_length': len(node_context_extracted)
+            }
         }) + '\n'
         
         # Step 5: LLM prompting
