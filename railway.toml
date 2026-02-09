@@ -1,6 +1,3 @@
-[build]
-builder = "python"
-
 [deploy]
 startCommand = "python medical_chatbot_webapp/app.py"
 healthcheckPath = "/api/health"
