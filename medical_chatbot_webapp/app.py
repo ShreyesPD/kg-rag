@@ -376,9 +376,12 @@ def health():
     })
 
 if __name__ == '__main__':
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
     print("\n" + "="*60)
     print("Medical KG-RAG Chatbot Server Starting...")
     print("="*60)
-    print("\nAccess the chatbot at: http://localhost:5000")
+    print(f"\nAccess the chatbot at: http://localhost:{port}")
     print("\nPress Ctrl+C to stop the server\n")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=debug, host='0.0.0.0', port=port)

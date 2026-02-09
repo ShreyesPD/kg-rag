@@ -46,6 +46,8 @@ fastapi==0.103.1
 fastjsonschema==2.18.0
 filelock==3.12.4
 flatbuffers==23.5.26
+Flask==2.3.3
+flask-cors==4.0.0
 fqdn==1.5.1
 frozenlist==1.4.0
 fsspec==2023.6.0
@@ -104,6 +106,10 @@ numexpr==2.8.6
 numpy==1.26.0
 nvidia-cublas-cu11==11.10.3.66
 nvidia-cuda-cupti-cu11==11.7.101
+nvidia-cuda-nvrtc-cu11==11.7.99
+nvidia-cuda-runtime-cu11==11.7.99
+nvidia-cudnn-cu11==8.5.0.96
+nvidia-cufft-cu11==10.9.0.58
 nvidia-cuda-nvrtc-cu11==11.7.99
 nvidia-cuda-runtime-cu11==11.7.99
 nvidia-cudnn-cu11==8.5.0.96

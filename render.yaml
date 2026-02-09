@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: kg-rag-chatbot
+    runtime: python3
+    buildCommand: |
+      pip install -r requirements.txt
+      python setup_vectordb.py
+    startCommand: python medical_chatbot_webapp/app.py
+    envVars:
+      - key: PORT
+        fromService:
+          type: web
+          property: port
+      - key: OPENAI_API_KEY
+        sync: false  # User needs to provide their OpenAI API key
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+    disk:
+      name: vector-db-disk
+      mountPath: /opt/render/project/src/data
+      sizeGB: 10
