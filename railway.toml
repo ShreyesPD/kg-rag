@@ -1,0 +1,10 @@
+[build]
+builder = "python"
+
+[deploy]
+startCommand = "python medical_chatbot_webapp/app.py"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+
+[volumes.data]
+mountPath = "/app/data"
