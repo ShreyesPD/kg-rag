@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical KG-RAG Chatbot - Dual Database</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            height: 90vh;
+        }
+
+        .chat-panel {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #e0e0e0;
+        }
+
+        .graph-panel {
+            display: flex;
+            flex-direction: column;
+            background: #f8f9fa;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .db-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .db-btn {
+            padding: 8px 16px;
+            border: 2px solid white;
+            background: transparent;
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .db-btn:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        .db-btn.active {
+            background: white;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            text-align: right;
+        }
+
+        .message-content {
+            display: inline-block;
+            padding: 12px 18px;
+            border-radius: 18px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message.bot .message-content {
+            background: white;
+            color: #333;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .step-indicator {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .step-indicator.completed {
+            background: #e8f5e9;
+            border-left-color: #4CAF50;
+        }
+
+        .step-indicator h4 {
+            color: #1976D2;
+            margin-bottom: 5px;
+        }
+
+        .step-indicator.completed h4 {
+            color: #388E3C;
+        }
+
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        #questionInput {
+            flex: 1;
+            padding: 12px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #questionInput:focus {
+            border-color: #667eea;
+        }
+
+        #sendBtn {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        #sendBtn:hover {
+            transform: scale(1.05);
+        }
+
+        #sendBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+        .graph-header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+        }
+
+        .graph-header h2 {
+            font-size: 18px;
+        }
+
+        #graphContainer {
+            flex: 1;
+            position: relative;
+            background: white;
+        }
+
+        .graph-info {
+            padding: 20px;
+            text-align: center;
+            color: #666;
+        }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .node {
+            cursor: pointer;
+        }
+
+        .node circle {
+            stroke: #fff;
+            stroke-width: 2px;
+        }
+
+        .node text {
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+        .link {
+            stroke: #999;
+            stroke-opacity: 0.6;
+            stroke-width: 2px;
+        }
+
+        .link-label {
+            font-size: 10px;
+            fill: #666;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .status-badge.spoke {
+            background: #e3f2fd;
+            color: #1976D2;
+        }
+
+        .status-badge.neo4j {
+            background: #e8f5e9;
+            color: #388E3C;
+        }
+
+        .status-badge.both {
+            background: #fff3e0;
+            color: #F57C00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-panel">
+            <div class="header">
+                <h1>🏥 Medical KG-RAG Chatbot</h1>
+                <p style="font-size: 14px; opacity: 0.9;">Dual Database: SPOKE + Neo4j Clinical Trials</p>
+                <div class="db-selector">
+                    <button class="db-btn" data-mode="spoke">SPOKE Only</button>
+                    <button class="db-btn active" data-mode="both">Both</button>
+                    <button class="db-btn" data-mode="neo4j">Neo4j Only</button>
+                </div>
+            </div>
+
+            <div class="messages" id="messages">
+                <div class="message bot">
+                    <div class="message-content">
+                        👋 Hello! I'm your medical knowledge assistant with access to:
+                        <br><br>
+                        <strong>SPOKE:</strong> Biomedical knowledge graph (diseases, genes, proteins, drugs)
+                        <br>
+                        <strong>Neo4j:</strong> Clinical trials database
+                        <br><br>
+                        Ask me anything about diseases, treatments, or clinical trials!
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-container">
+                    <input type="text" id="questionInput" placeholder="Ask a medical question..." />
+                    <button id="sendBtn">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="graph-panel">
+            <div class="graph-header">
+                <h2>📊 Knowledge Graph Visualization</h2>
+            </div>
+            <div id="graphContainer">
+                <div class="graph-info">
+                    <p>Graph visualization will appear here when you ask a question</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDbMode = 'both';
+        let isProcessing = false;
+
+        const dbButtons = document.querySelectorAll('.db-btn');
+        dbButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                dbButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentDbMode = btn.dataset.mode;
+            });
+        });
+
+        const questionInput = document.getElementById('questionInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const messagesDiv = document.getElementById('messages');
+
+        questionInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !isProcessing) {
+                sendQuestion();
+            }
+        });
+
+        sendBtn.addEventListener('click', sendQuestion);
+
+        function addMessage(content, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+            messageDiv.innerHTML = `<div class="message-content">${content}</div>`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function addStepIndicator(step, name, description, status = 'processing') {
+            const stepDiv = document.createElement('div');
+            stepDiv.className = `step-indicator ${status}`;
+            stepDiv.id = `step-${step}`;
+            stepDiv.innerHTML = `
+                <h4>${status === 'completed' ? '✓' : '⏳'} ${name}</h4>
+                <p style="margin: 0; color: #666; font-size: 13px;">${description}</p>
+            `;
+            messagesDiv.appendChild(stepDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            return stepDiv;
+        }
+
+        function updateStepStatus(step, status, result) {
+            const stepDiv = document.getElementById(`step-${step}`);
+            if (stepDiv) {
+                stepDiv.className = `step-indicator ${status}`;
+                const h4 = stepDiv.querySelector('h4');
+                const p = stepDiv.querySelector('p');
+                h4.innerHTML = `${status === 'completed' ? '✓' : '⏳'} ${h4.textContent.replace(/^[✓⏳]\s/, '')}`;
+                if (result) {
+                    p.textContent = result;
+                }
+            }
+        }
+
+        function sendQuestion() {
+            const question = questionInput.value.trim();
+            if (!question || isProcessing) return;
+
+            isProcessing = true;
+            sendBtn.disabled = true;
+            questionInput.disabled = true;
+
+            addMessage(question, true);
+            addMessage(`<span class="status-badge ${currentDbMode}">${currentDbMode.toUpperCase()}</span> Processing...`);
+
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    question: question,
+                    db_mode: currentDbMode
+                })
+            })
+            .then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                function readStream() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            isProcessing = false;
+                            sendBtn.disabled = false;
+                            questionInput.disabled = false;
+                            questionInput.value = '';
+                            questionInput.focus();
+                            return;
+                        }
+
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n').filter(line => line.trim());
+
+                        lines.forEach(line => {
+                            try {
+                                const data = JSON.parse(line);
+                                handleStreamData(data);
+                            } catch (e) {
+                                console.error('Parse error:', e);
+                            }
+                        });
+
+                        readStream();
+                    });
+                }
+
+                readStream();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                addMessage('❌ Error: ' + error.message);
+                isProcessing = false;
+                sendBtn.disabled = false;
+                questionInput.disabled = false;
+            });
+        }
+
+        function handleStreamData(data) {
+            switch (data.type) {
+                case 'info':
+                    break;
+                case 'step_start':
+                    addStepIndicator(data.step, data.name, data.description);
+                    break;
+                case 'step_complete':
+                    updateStepStatus(data.step, data.status, data.result);
+                    break;
+                case 'graph_data':
+                    visualizeGraph(data.graph);
+                    break;
+                case 'answer':
+                    addMessage(data.answer);
+                    break;
+                case 'error':
+                    addMessage('❌ Error: ' + data.error);
+                    break;
+            }
+        }
+
+        function visualizeGraph(graphData) {
+            const container = document.getElementById('graphContainer');
+            container.innerHTML = '';
+
+            if (!graphData.nodes || graphData.nodes.length === 0) {
+                container.innerHTML = '<div class="graph-info"><p>No graph data available</p></div>';
+                return;
+            }
+
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            const svg = d3.select('#graphContainer')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            const colorMap = {
+                'question': '#667eea',
+                'entity': '#4CAF50',
+                'spoke_node': '#2196F3',
+                'clinical_trial': '#FF5722',
+                'condition': '#FFC107',
+                'intervention': '#9C27B0',
+                'sponsor': '#00BCD4',
+                'answer': '#4CAF50'
+            };
+
+            const simulation = d3.forceSimulation(graphData.nodes)
+                .force('link', d3.forceLink(graphData.edges).id(d => d.id).distance(100))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(width / 2, height / 2));
+
+            const link = svg.append('g')
+                .selectAll('line')
+                .data(graphData.edges)
+                .enter().append('line')
+                .attr('class', 'link');
+
+            const node = svg.append('g')
+                .selectAll('g')
+                .data(graphData.nodes)
+                .enter().append('g')
+                .attr('class', 'node')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended));
+
+            node.append('circle')
+                .attr('r', d => d.type === 'clinical_trial' ? 15 : 10)
+                .attr('fill', d => colorMap[d.type] || '#999');
+
+            node.append('text')
+                .attr('dx', 12)
+                .attr('dy', 4)
+                .text(d => d.label);
+
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+
+                node.attr('transform', d => `translate(${d.x},${d.y})`);
+            });
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+        }
+    </script>
+</body>
+</html>

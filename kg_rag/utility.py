@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from joblib import Memory
 import json
-import openai
+from openai import OpenAI, AzureOpenAI
 import os
 import sys
 from tenacity import retry, stop_after_attempt, wait_random_exponential
@@ -24,16 +24,25 @@ memory = Memory("cachegpt", verbose=0)
 # Config openai library
 config_file = config_data['GPT_CONFIG_FILE']
 load_dotenv(config_file)
+# Also load from .env in project root
+load_dotenv(find_dotenv())
+
 # Support both API_KEY (Azure) and OPENAI_API_KEY (OpenAI) environment variables
 api_key = os.environ.get('OPENAI_API_KEY') or os.environ.get('API_KEY')
 api_version = os.environ.get('API_VERSION')
 resource_endpoint = os.environ.get('RESOURCE_ENDPOINT')
-openai.api_type = config_data['GPT_API_TYPE']
-openai.api_key = api_key
-if resource_endpoint:
-    openai.api_base = resource_endpoint
-if api_version:
-    openai.api_version = api_version
+api_type = config_data['GPT_API_TYPE']
+
+# Initialize OpenAI client (new v1.0+ API)
+if api_type == 'azure' and resource_endpoint:
+    openai_client = AzureOpenAI(
+        api_key=api_key,
+        api_version=api_version,
+        azure_endpoint=resource_endpoint
+    )
+else:
+    # For OpenAI, use API key from environment or parameter
+    openai_client = OpenAI(api_key=api_key) if api_key else OpenAI()
 
 torch.cuda.empty_cache()
 B_INST, E_INST = "[INST]", "[/INST]"
@@ -192,36 +201,37 @@ def llama_model(model_name, branch_name, cache_dir, temperature=0, top_p=1, max_
 
 
 
-@retry(wait=wait_random_exponential(min=10, max=30), stop=stop_after_attempt(5))
+@retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
 def fetch_GPT_response(instruction, system_prompt, chat_model_id, chat_deployment_id, temperature=0):
-    # print('Calling OpenAI...')
-    # For OpenAI API, only use model parameter. For Azure, use deployment_id
-    if openai.api_type == 'azure' and chat_deployment_id:
-        response = openai.ChatCompletion.create(
-            temperature=temperature,
-            deployment_id=chat_deployment_id,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": instruction}
-            ]
-        )
-    else:
-        response = openai.ChatCompletion.create(
-            temperature=temperature,
-            model=chat_model_id,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": instruction}
-            ]
-        )
-    if 'choices' in response \
-       and isinstance(response['choices'], list) \
-       and len(response) >= 0 \
-       and 'message' in response['choices'][0] \
-       and 'content' in response['choices'][0]['message']:
-        return response['choices'][0]['message']['content']
-    else:
-        return 'Unexpected response'
+    # Use new OpenAI client API (v1.0+)
+    try:
+        if api_type == 'azure' and chat_deployment_id:
+            response = openai_client.chat.completions.create(
+                model=chat_deployment_id,  # For Azure, this is the deployment name
+                temperature=temperature,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": instruction}
+                ]
+            )
+        else:
+            response = openai_client.chat.completions.create(
+                model=chat_model_id,
+                temperature=temperature,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": instruction}
+                ]
+            )
+        
+        # New API returns response object with attributes, not dict
+        if response.choices and len(response.choices) > 0:
+            return response.choices[0].message.content
+        else:
+            return 'Unexpected response'
+    except Exception as e:
+        print(f"Error calling OpenAI API: {str(e)}")
+        raise
 
 @memory.cache
 def get_GPT_response(instruction, system_prompt, chat_model_id, chat_deployment_id, temperature=0):
@@ -238,8 +248,8 @@ def stream_out(output):
     print("\n")
 
 def get_gpt35():
-    chat_model_id = 'gpt-35-turbo' if openai.api_type == 'azure' else 'gpt-3.5-turbo'
-    chat_deployment_id = chat_model_id if openai.api_type == 'azure' else None
+    chat_model_id = 'gpt-35-turbo' if api_type == 'azure' else 'gpt-3.5-turbo'
+    chat_deployment_id = chat_model_id if api_type == 'azure' else None
     return chat_model_id, chat_deployment_id
 
 def disease_entity_extractor(text):

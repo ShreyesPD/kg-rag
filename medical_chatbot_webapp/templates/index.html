@@ -140,6 +140,54 @@
             font-size: 12px;
         }
 
+        /* Database selector */
+        .db-selector {
+            margin-top: 20px;
+        }
+
+        .db-selector-label {
+            color: #a0aec0;
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 10px;
+            display: block;
+            text-align: center;
+        }
+
+        .db-buttons {
+            display: flex;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 6px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .db-btn {
+            flex: 1;
+            padding: 8px 12px;
+            background: transparent;
+            color: #a0aec0;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .db-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .db-btn.active {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(72, 187, 120, 0.4);
+        }
+
         /* Chat area with medical paper texture */
         .chat-area {
             flex: 1;
@@ -828,6 +876,16 @@
                         <p>Biomedical Knowledge Graph-Enhanced AI Assistant</p>
                     </div>
                 </div>
+                <!-- Database Selector -->
+                <div class="db-selector">
+                    <label class="db-selector-label">Knowledge Source</label>
+                    <div class="db-buttons">
+                        <button class="db-btn" data-db="spoke" onclick="selectDatabase('spoke')">SPOKE</button>
+                        <button class="db-btn active" data-db="both" onclick="selectDatabase('both')">Both</button>
+                        <button class="db-btn" data-db="neo4j" onclick="selectDatabase('neo4j')">Neo4j</button>
+                    </div>
+                </div>
+
                 <div class="status-indicator">
                     <div class="status-dot"></div>
                     <span class="status-text">Active</span>
@@ -912,6 +970,10 @@
                         <span>Context Entity</span>
                     </div>
                     <div class="legend-item">
+                        <div class="legend-color" style="background: #9f7aea;"></div>
+                        <span>Clinical Trial</span>
+                    </div>
+                    <div class="legend-item">
                         <div class="legend-color" style="background: #ed64a6;"></div>
                         <span>Answer</span>
                     </div>
@@ -928,6 +990,17 @@
     <script>
         let isProcessing = false;
         let currentGraphData = null;
+        let selectedDatabase = 'both'; // Default database mode
+
+        function selectDatabase(dbMode) {
+            selectedDatabase = dbMode;
+            
+            // Update button states
+            document.querySelectorAll('.db-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.db-btn[data-db="${dbMode}"]`).classList.add('active');
+        }
 
         function askQuestion(question) {
             document.getElementById('questionInput').value = question;
@@ -955,6 +1028,7 @@
                 'entity': '#f6ad55',
                 'spoke_node': '#48bb78',
                 'context_entity': '#4299e1',
+                'neo4j_trial': '#9f7aea',
                 'answer': '#ed64a6'
             };
             return colors[type] || '#718096';
@@ -966,6 +1040,7 @@
                 'entity': 15,
                 'spoke_node': 18,
                 'context_entity': 12,
+                'neo4j_trial': 16,
                 'answer': 20
             };
             return sizes[type] || 12;
@@ -1276,7 +1351,10 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ question: question })
+                    body: JSON.stringify({ 
+                        question: question,
+                        db_mode: selectedDatabase  // Include selected database mode
+                    })
                 });
 
                 const reader = response.body.getReader();
